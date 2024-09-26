@@ -4,8 +4,9 @@ import (
 	"log"
 	"net/http"
 
-	app "github.com/CyberPiess/instagram/internal/app/instagram/application/user"
-	// database "github.com/CyberPiess/instagram/internal/app/instagram/infrastructure/database"
+	appUser "github.com/CyberPiess/instagram/internal/app/instagram/application/user"
+	domainUser "github.com/CyberPiess/instagram/internal/app/instagram/domain/user"
+	database "github.com/CyberPiess/instagram/internal/app/instagram/infrastructure/database"
 
 	_ "github.com/lib/pq"
 )
@@ -14,18 +15,29 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	// db, err := database.OpenDB()
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// defer db.Close()
+	db, err := database.NewPostgresDb(database.Config{
+		Host:     "localhost",
+		Port:     "5432",
+		Username: "admin",
+		DBName:   "Instagram",
+		SSLMode:  "disable",
+		Password: "password",
+	})
 
-	var user app.User
+	if err != nil {
+		log.Fatal("failed to initialize db: %s", err.Error())
+	}
 
-	mux.HandleFunc("/createUser", user.Create)
+	storage := database.NewUserRepository(db)
+
+	service := domainUser.NewUserService(storage)
+
+	userHandler := appUser.NewUserHandler(service)
+
+	mux.HandleFunc("/createUser", userHandler.UserCreate())
 
 	log.Println("Запуск веб-сервера на http://localhost:8080")
-	err := http.ListenAndServe(":8080", mux)
+	err = http.ListenAndServe(":8080", mux)
 	log.Fatal(err)
 
 }
